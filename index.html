@@ -583,15 +583,10 @@
       }
 
       container.innerHTML = `
-        <section class="relative min-h-screen flex flex-col md:flex-row-reverse items-center justify-center overflow-hidden -mt-20 px-6 py-24 md:py-0"> 
+        <section class="relative min-h-screen flex flex-col md:flex-row items-center justify-center overflow-hidden -mt-20 px-6 py-24 md:py-0 bg-black"> 
           
-          <!-- Imagem (Direita no Desktop / Topo no Mobile) -->
-          <div class="relative z-10 w-full md:w-1/2 h-[50vh] md:h-screen flex items-center justify-center md:justify-start md:pr-12 order-1 md:order-1 bg-black md:bg-transparent">
-            <img src="${state.settings.heroImage}" alt="Hero Background" class="w-full h-full object-contain md:object-cover md:max-w-full rounded-2xl md:rounded-none" />
-          </div>
-
           <!-- Texto (Esquerda no Desktop / Base no Mobile) -->
-          <div class="relative z-10 w-full md:w-1/2 flex flex-col justify-center md:pl-12 text-center md:text-left mt-8 md:mt-0 order-2 md:order-2">
+          <div class="relative z-10 w-full md:w-1/2 flex flex-col justify-center md:pr-12 text-center md:text-left mt-8 md:mt-0 order-2 md:order-1">
             <h1 class="text-5xl md:text-7xl lg:text-8xl font-semibold tracking-tighter leading-[0.9] mb-6">
               ${heroTitleHtml}
             </h1>
@@ -603,6 +598,11 @@
                 Explorar Projetos
               </button>
             </div>
+          </div>
+
+          <!-- Imagem (Direita no Desktop / Topo no Mobile) -->
+          <div class="relative z-10 w-full md:w-1/2 h-[50vh] md:h-screen flex items-center justify-center md:justify-end order-1 md:order-2 bg-black md:bg-transparent">
+            <img src="${state.settings.heroImage}" alt="Hero Background" class="w-full h-full object-contain md:object-cover md:max-w-full rounded-2xl md:rounded-none" />
           </div>
         </section>
 
