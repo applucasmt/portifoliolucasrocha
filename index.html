@@ -583,14 +583,14 @@
       }
 
       container.innerHTML = `
-        <section class="relative min-h-screen flex flex-col md:flex-row items-center justify-center overflow-hidden -mt-20 px-6 py-24 md:py-0"> <!-- -mt-20 compensa o navbar fixo para que fique imersivo -->
+        <section class="relative min-h-screen flex flex-col md:flex-row-reverse items-center justify-center overflow-hidden -mt-20 px-6 py-24 md:py-0"> 
           
-          <!-- Imagem (Esquerda no Desktop / Topo no Mobile) -->
-          <div class="relative z-10 w-full md:w-1/2 h-[50vh] md:h-screen flex items-center justify-center md:justify-end md:pr-12 order-1 md:order-1">
+          <!-- Imagem (Direita no Desktop / Topo no Mobile) -->
+          <div class="relative z-10 w-full md:w-1/2 h-[50vh] md:h-screen flex items-center justify-center md:justify-start md:pr-12 order-1 md:order-1">
             <img src="${state.settings.heroImage}" alt="Hero Background" class="w-full h-full object-contain md:object-cover md:max-w-full rounded-2xl md:rounded-none" />
           </div>
 
-          <!-- Texto (Direita no Desktop / Base no Mobile) -->
+          <!-- Texto (Esquerda no Desktop / Base no Mobile) -->
           <div class="relative z-10 w-full md:w-1/2 flex flex-col justify-center md:pl-12 text-center md:text-left mt-8 md:mt-0 order-2 md:order-2">
             <h1 class="text-5xl md:text-7xl lg:text-8xl font-semibold tracking-tighter leading-[0.9] mb-6">
               ${heroTitleHtml}
