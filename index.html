@@ -255,7 +255,7 @@
 
     let state = {
       isAdmin: false,
-      adminToken: null,          // <-- NOVO: token de sessão
+      adminToken: null,
       adminTab: 'dashboard',
       editingProject: null,
       projects: [],
@@ -286,7 +286,7 @@
     // =========================================================================
     const formatDriveUrl = (url) => {
       if (!url) return '';
-      const match = url.match(/(?:id=|v=|d\/|id\/)([a-zA-Z0-9_-]{25,})/);
+      const match = url.match(/(?:\/d\/|id=)([a-zA-Z0-9_-]{25,})/);
       if (match && match[1] && url.includes('google')) {
         return `https://lh3.googleusercontent.com/d/${match[1]}`;
       }
@@ -359,7 +359,6 @@
       }
     };
 
-    // --- apiPost: agora envia token e trata sessão expirada ---
     const apiPost = async (action, payload) => {
       try {
         const body = { action, payload: payload || {}, token: state.adminToken || null };
@@ -371,13 +370,11 @@
         });
         const json = await res.json();
 
-        // Sessão expirada → força novo login
         if (json.status === 'error' && /sess[ãa]o|login/i.test(json.message || '')) {
           state.isAdmin = false;
           state.adminToken = null;
           sessionStorage.removeItem('admin_token');
           alert('Sua sessão expirou. Faça login novamente.');
-          // Se estava no admin, sai
           if (state.adminTab) {
             navigate('home');
           }
@@ -770,7 +767,6 @@
       lucide.createIcons();
     }
 
-    // --- Logout com invalidação no servidor ---
     window.adminLogout = async function() {
       try {
         if (state.adminToken) await apiPost('logout', {});
@@ -901,7 +897,6 @@
       document.getElementById('login-modal').classList.add('hidden');
     };
 
-    // --- LOGIN: valida credenciais no servidor ---
     document.getElementById('login-form').addEventListener('submit', async (e) => {
       e.preventDefault();
       const email = document.getElementById('login-email').value.trim();
@@ -1020,9 +1015,7 @@
       }
     }
 
-    // --- DOMContentLoaded: restaura token e inicializa ---
     document.addEventListener("DOMContentLoaded", () => {
-      // Restaura token salvo na sessão
       const savedToken = sessionStorage.getItem('admin_token');
       if (savedToken) {
         state.adminToken = savedToken;
