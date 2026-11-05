@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
   <title>LUCAS ROCHA - Portfolio</title>
   
   <!-- Tailwind CSS -->
@@ -47,41 +48,43 @@
     
     ::selection { background-color: #fff; color: #000; }
 
-    #project-modal-media .plyr {
-      width: 100% !important;
-      height: 100% !important;
-      border-radius: 0.75rem !important;
-      overflow: hidden !important;
-    }
-    #project-modal-media .plyr__video-wrapper { height: 100% !important; }
-    #project-modal-media video { width: 100% !important; height: 100% !important; object-fit: contain !important; }
-    #project-modal-media iframe { width: 100% !important; height: 100% !important; border: none !important; border-radius: 0.75rem !important; }
-
+    /* ---------- MÍDIA DO MODAL (vídeo / imagem) ---------- */
     #project-modal-media {
       background-color: #000 !important;
       display: flex !important;
       align-items: center !important;
       justify-content: center !important;
+      overflow: hidden;
     }
-    #project-modal-media > div {
+    #project-modal-media > div.media-wrap {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    #project-modal-media iframe {
       width: 100% !important;
       height: 100% !important;
-      display: flex !important;
-      align-items: center !important;
-      justify-content: center !important;
-      padding: 0 !important;
+      border: none !important;
+      background: #000;
     }
+    #project-modal-media .plyr {
+      width: 100% !important;
+      height: 100% !important;
+    }
+    #project-modal-media .plyr__video-wrapper { height: 100% !important; }
+    #project-modal-media video { width: 100% !important; height: 100% !important; object-fit: contain !important; }
 
-    .error-message { color: #ff4444; text-align: center; padding: 20px; }
+    .error-message { color: #ff6b6b; text-align: center; padding: 20px; font-size: 0.9rem; line-height: 1.5; }
 
     @media (max-width: 768px) {
       #project-modal-box { flex-direction: column !important; }
       #project-modal-media {
-        height: 50vh !important; width: 90% !important; min-height: 60vh !important;
+        height: 50vh !important; width: 100% !important; min-height: 40vh !important;
       }
-      #project-modal-media .plyr, #project-modal-media iframe { border-radius: 0.5rem !important; }
       #project-modal-details {
-        height: auto !important; max-height: 30vh !important;
+        height: auto !important; max-height: 40vh !important;
         padding: 0.75rem 1rem !important; overflow-y: auto !important;
       }
       #project-modal-title { font-size: 1.25rem !important; margin-bottom: 0.25rem !important; }
@@ -282,11 +285,19 @@
     document.getElementById('current-year').textContent = new Date().getFullYear();
 
     // =========================================================================
-    // UTILITÁRIOS E API
+    // UTILITÁRIOS: ESCAPE, DRIVE, YOUTUBE, CAPAS
     // =========================================================================
+    const esc = (s) => String(s ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/"/g, '&quot;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+
     const formatDriveUrl = (url) => {
       if (!url) return '';
-      const match = url.match(/(?:\/d\/|id=)([a-zA-Z0-9_-]{25,})/);
+      // Capas já geradas automaticamente não devem ser alteradas
+      if (url.includes('drive.google.com/thumbnail') || url.includes('img.youtube.com') || url.includes('i.ytimg.com')) return url;
+      const match = url.match(/(?:id=|v=|d\/|id\/)([a-zA-Z0-9_-]{25,})/);
       if (match && match[1] && url.includes('google')) {
         return `https://lh3.googleusercontent.com/d/${match[1]}`;
       }
@@ -295,7 +306,7 @@
 
     function getGoogleDriveFileId(url) {
       if (!url) return null;
-      const patterns = [ /\/file\/d\/([a-zA-Z0-9_-]+)/, /id=([a-zA-Z0-9_-]+)/, /\/d\/([a-zA-Z0-9_-]+)/ ];
+      const patterns = [ /\/file\/d\/([a-zA-Z0-9_-]+)/, /[?&]id=([a-zA-Z0-9_-]+)/, /\/d\/([a-zA-Z0-9_-]+)/ ];
       for (const pattern of patterns) {
         const match = url.match(pattern);
         if (match && match[1]) return match[1];
@@ -304,49 +315,79 @@
     }
 
     function isGoogleDriveUrl(url) {
-      return url && (url.includes('drive.google.com') || url.includes('docs.google.com'));
+      return !!url && (url.includes('drive.google.com') || url.includes('docs.google.com'));
     }
 
+    // Aceita: watch?v=, youtu.be/, shorts/, embed/, live/, m.youtube.com, music.youtube.com
     function getYouTubeId(url) {
       if (!url) return null;
-      const patterns = [
-        /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/,
-        /youtube\.com\/watch\?.*v=([a-zA-Z0-9_-]{11})/
-      ];
-      for (const pattern of patterns) {
-        const match = url.match(pattern);
-        if (match && match[1]) return match[1];
-      }
-      return null;
+      const m = url.match(/(?:youtube(?:-nocookie)?\.com\/(?:watch\?(?:[^#]*&)?v=|embed\/|shorts\/|live\/|v\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/);
+      return m ? m[1] : null;
     }
 
-    function isYouTubeUrl(url) {
-      return url && (url.includes('youtube.com') || url.includes('youtu.be'));
+    function getVideoInfo(url) {
+      url = (url || '').trim();
+      if (!url) return null;
+      const yt = getYouTubeId(url);
+      if (yt) return { kind: 'youtube', id: yt };
+      if (isGoogleDriveUrl(url)) {
+        const id = getGoogleDriveFileId(url);
+        return id ? { kind: 'drive', id } : { kind: 'drive-invalid' };
+      }
+      return { kind: 'file', url };
     }
 
-    // --- NOVO: gerar URL da capa automaticamente a partir do link do vídeo ---
-    function getVideoThumbnail(videoUrl) {
-      if (!videoUrl) return '';
-
-      // YouTube → thumbnail oficial
-      if (isYouTubeUrl(videoUrl)) {
-        const ytId = getYouTubeId(videoUrl);
-        if (ytId) {
-          return `https://img.youtube.com/vi/${ytId}/maxresdefault.jpg`;
-        }
-      }
-
-      // Google Drive → thumbnail do lh3
-      if (isGoogleDriveUrl(videoUrl)) {
-        const fileId = getGoogleDriveFileId(videoUrl);
-        if (fileId) {
-          return `https://lh3.googleusercontent.com/d/${fileId}`;
-        }
-      }
-
-      // Link direto → sem capa automática
+    // Capa "rápida" (sem testar se existe). Usada para projetos antigos sem capa.
+    function getAutoThumb(videoUrl) {
+      const info = getVideoInfo(videoUrl);
+      if (!info) return '';
+      if (info.kind === 'youtube') return `https://img.youtube.com/vi/${info.id}/maxresdefault.jpg`;
+      if (info.kind === 'drive') return `https://drive.google.com/thumbnail?id=${info.id}&sz=w1280`;
       return '';
     }
+
+    function probeImage(src) {
+      return new Promise((resolve) => {
+        const img = new Image();
+        const t = setTimeout(() => resolve(null), 8000);
+        img.onload = () => { clearTimeout(t); resolve(img.naturalWidth > 0 ? img : null); };
+        img.onerror = () => { clearTimeout(t); resolve(null); };
+        img.src = src;
+      });
+    }
+
+    // Capa "confiável": testa se a imagem realmente carrega
+    async function resolveThumbnail(videoUrl) {
+      const info = getVideoInfo(videoUrl);
+      if (!info) return '';
+
+      if (info.kind === 'youtube') {
+        const maxres = `https://img.youtube.com/vi/${info.id}/maxresdefault.jpg`;
+        const hq = `https://img.youtube.com/vi/${info.id}/hqdefault.jpg`;
+        const img = await probeImage(maxres);
+        // YouTube devolve um placeholder 120x90 quando não existe maxres
+        if (img && img.naturalWidth > 320) return maxres;
+        return hq;
+      }
+
+      if (info.kind === 'drive') {
+        const thumb = `https://drive.google.com/thumbnail?id=${info.id}&sz=w1280`;
+        const img = await probeImage(thumb);
+        return img ? thumb : '';
+      }
+
+      return '';
+    }
+
+    // Fallback de imagens quebradas (ex.: maxresdefault inexistente)
+    window.imgFallback = function(img) {
+      if (img.src.includes('maxresdefault')) {
+        img.src = img.src.replace('maxresdefault', 'hqdefault');
+      } else {
+        img.onerror = null;
+        img.style.visibility = 'hidden';
+      }
+    };
 
     const fetchData = async () => {
       let progress = 0;
@@ -364,9 +405,12 @@
         
         if (json.status === 'success') {
           if (json.data.projects?.length > 0) {
-            state.projects = json.data.projects.map(p => ({
-              ...p, imageUrl: formatDriveUrl(p.imageUrl)
-            })).sort((a,b) => b.createdAt - a.createdAt);
+            state.projects = json.data.projects.map(p => {
+              let img = formatDriveUrl(p.imageUrl);
+              // Projetos de vídeo antigos sem capa: puxa do link automaticamente
+              if (!img && p.type === 'video' && p.videoUrl) img = getAutoThumb(p.videoUrl);
+              return { ...p, imageUrl: img };
+            }).sort((a,b) => b.createdAt - a.createdAt);
           } else { state.projects = MOCK_PROJECTS; }
           
           if (json.data.categories?.length > 0) {
@@ -514,12 +558,14 @@
       renderSobre();
       renderContato();
       lucide.createIcons();
+      if (scrollObserver) {
+        document.querySelectorAll('.fade-in-up').forEach(el => scrollObserver.observe(el));
+      }
     }
 
     function renderHome() {
       const container = document.getElementById('view-home');
       const featured = state.projects.filter(p => p.isFeatured);
-      const recentArts = state.projects.filter(p => p.type === 'arte').slice(0, 6);
 
       let heroWords = state.settings.heroName.split(' ');
       let heroTitleHtml = heroWords.map((word, i) => 
@@ -537,7 +583,7 @@
               ${featured.map((item, i) => `
                 <div class="fade-in-up delay-${(i%3)*100} h-[50vh] md:h-[60vh] flex-shrink-0 relative group rounded-3xl overflow-hidden snap-center cursor-pointer bg-[#111]"
                      onclick="openProjectModal('${item.id}')">
-                  <img src="${item.imageUrl}" alt="${item.title}" class="h-full w-auto max-w-[85vw] object-cover transition-transform duration-1000 group-hover:scale-110" loading="lazy" />
+                  <img src="${esc(item.imageUrl)}" alt="${esc(item.title)}" class="h-full w-auto max-w-[85vw] object-cover transition-transform duration-1000 group-hover:scale-110" loading="lazy" onerror="imgFallback(this)" />
                   <div class="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent opacity-80 group-hover:opacity-100 transition-opacity duration-500"></div>
                   
                   ${item.type === 'video' ? `
@@ -549,8 +595,8 @@
                   ` : ''}
 
                   <div class="absolute bottom-0 left-0 p-8 transform translate-y-4 group-hover:translate-y-0 transition-transform duration-500 w-full overflow-hidden">
-                    <span class="text-xs uppercase tracking-[0.2em] font-medium text-gray-300 mb-2 block">${item.category}</span>
-                    <h3 class="text-2xl md:text-4xl font-semibold tracking-tight truncate block w-full">${item.title}</h3>
+                    <span class="text-xs uppercase tracking-[0.2em] font-medium text-gray-300 mb-2 block">${esc(item.category)}</span>
+                    <h3 class="text-2xl md:text-4xl font-semibold tracking-tight truncate block w-full">${esc(item.title)}</h3>
                   </div>
                 </div>
               `).join('')}
@@ -562,7 +608,7 @@
       container.innerHTML = `
         <section class="relative h-screen flex items-center justify-center overflow-hidden -mt-20">
           <div class="absolute inset-0 z-0 bg-black">
-             <img src="${state.settings.heroImage}" alt="Hero Background" class="w-full h-full object-cover object-center opacity-75" />
+             <img src="${esc(state.settings.heroImage)}" alt="Hero Background" class="w-full h-full object-cover object-center opacity-75" />
              <div class="absolute inset-0 bg-gradient-to-t md:bg-gradient-to-l from-black/90 via-black/40 to-transparent"></div>
           </div>
           
@@ -603,16 +649,16 @@
       let filtersHtml = `
         <button onclick="setDesignerFilter('Todos')" class="px-5 py-2 rounded-full text-sm font-medium transition-all duration-300 ${state.designerFilter === 'Todos' ? 'bg-white text-black' : 'bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white'}">Todos</button>
         ${state.categories.map(cat => `
-          <button onclick="setDesignerFilter('${cat}')" class="px-5 py-2 rounded-full text-sm font-medium transition-all duration-300 ${state.designerFilter === cat ? 'bg-white text-black' : 'bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white'}">${cat}</button>
+          <button onclick="setDesignerFilter('${cat.replace(/'/g, "\\'")}')" class="px-5 py-2 rounded-full text-sm font-medium transition-all duration-300 ${state.designerFilter === cat ? 'bg-white text-black' : 'bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white'}">${esc(cat)}</button>
         `).join('')}
       `;
 
       let gridHtml = filtered.length > 0 ? filtered.map((project, i) => `
         <div class="fade-in-up delay-${(i%4)*100} break-inside-avoid relative group rounded-2xl overflow-hidden bg-[#111] mb-6 cursor-pointer" onclick="openProjectModal('${project.id}')">
-          <img src="${project.imageUrl}" alt="${project.title}" class="w-full h-auto block transition-transform duration-700 group-hover:scale-105" loading="lazy" />
+          <img src="${esc(project.imageUrl)}" alt="${esc(project.title)}" class="w-full h-auto block transition-transform duration-700 group-hover:scale-105" loading="lazy" onerror="imgFallback(this)" />
           <div class="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-300 flex flex-col justify-end p-6 overflow-hidden">
-            <span class="text-xs uppercase tracking-widest text-gray-400 mb-1 truncate block w-full">${project.category}</span>
-            <h3 class="text-xl font-medium truncate block w-full">${project.title}</h3>
+            <span class="text-xs uppercase tracking-widest text-gray-400 mb-1 truncate block w-full">${esc(project.category)}</span>
+            <h3 class="text-xl font-medium truncate block w-full">${esc(project.title)}</h3>
             <button class="mt-4 w-10 h-10 rounded-full bg-white text-black flex items-center justify-center transform translate-y-4 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300 delay-100">
               <i data-lucide="chevron-right" class="w-5 h-5"></i>
             </button>
@@ -662,8 +708,8 @@
           <div class="columns-1 md:columns-2 gap-8 space-y-8">
             ${videos.length > 0 ? videos.map((video, i) => `
               <div class="fade-in-up delay-${(i%2)*100} break-inside-avoid group cursor-pointer mb-8" onclick="openProjectModal('${video.id}')">
-                <div class="relative rounded-2xl overflow-hidden bg-[#111] mb-4">
-                  <img src="${video.imageUrl}" alt="${video.title}" class="w-full h-auto block transition-transform duration-700 group-hover:scale-105" loading="lazy" />
+                <div class="relative rounded-2xl overflow-hidden bg-[#111] mb-4 min-h-[180px]">
+                  <img src="${esc(video.imageUrl)}" alt="${esc(video.title)}" class="w-full h-auto block transition-transform duration-700 group-hover:scale-105" loading="lazy" onerror="imgFallback(this)" />
                   <div class="absolute inset-0 bg-black/40 group-hover:bg-black/20 transition-colors duration-300"></div>
                   <div class="absolute inset-0 flex items-center justify-center">
                     <div class="w-16 h-16 rounded-full bg-black/50 backdrop-blur-md flex items-center justify-center border border-white/20 group-hover:scale-110 transition-transform">
@@ -673,8 +719,8 @@
                 </div>
                 <div class="flex justify-between items-start">
                   <div class="w-full overflow-hidden">
-                    <h3 class="text-2xl font-medium tracking-tight mb-1 truncate block w-full">${video.title}</h3>
-                    <p class="text-gray-500 text-sm truncate block w-full">${video.category}</p>
+                    <h3 class="text-2xl font-medium tracking-tight mb-1 truncate block w-full">${esc(video.title)}</h3>
+                    <p class="text-gray-500 text-sm truncate block w-full">${esc(video.category)}</p>
                   </div>
                 </div>
               </div>
@@ -698,9 +744,9 @@
           <div class="columns-1 md:columns-2 lg:columns-3 gap-4 space-y-4">
             ${photos.length > 0 ? photos.map((photo, i) => `
               <div class="fade-in-up delay-${(i%3)*100} break-inside-avoid relative group bg-[#111] overflow-hidden rounded-2xl mb-4 cursor-pointer" onclick="openProjectModal('${photo.id}')">
-                <img src="${photo.imageUrl}" alt="${photo.title}" class="w-full h-auto block transition-transform duration-1000 group-hover:scale-110" loading="lazy" />
+                <img src="${esc(photo.imageUrl)}" alt="${esc(photo.title)}" class="w-full h-auto block transition-transform duration-1000 group-hover:scale-110" loading="lazy" onerror="imgFallback(this)" />
                 <div class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
-                  <span class="text-white tracking-widest uppercase text-sm truncate max-w-[90%] block text-center">${photo.title}</span>
+                  <span class="text-white tracking-widest uppercase text-sm truncate max-w-[90%] block text-center">${esc(photo.title)}</span>
                 </div>
               </div>
             `).join('') : `<div class="col-span-full py-20 text-center text-gray-500 fade-in-up">Galeria em construção.</div>`}
@@ -715,7 +761,7 @@
         <div class="max-w-7xl mx-auto px-6 py-24 flex items-center">
           <div class="grid grid-cols-1 md:grid-cols-2 gap-16 items-center">
             <div class="relative rounded-3xl overflow-hidden bg-[#111] fade-in-up">
-              <img src="${state.settings.heroImage}" alt="Profile" class="w-full h-auto block grayscale hover:grayscale-0 transition-all duration-700" loading="lazy" />
+              <img src="${esc(state.settings.heroImage)}" alt="Profile" class="w-full h-auto block grayscale hover:grayscale-0 transition-all duration-700" loading="lazy" />
             </div>
             <div class="fade-in-up delay-100">
               <h3 class="text-sm tracking-[0.3em] text-gray-500 uppercase mb-4">Sobre o Artista</h3>
@@ -730,11 +776,11 @@
                    <i data-lucide="mail" class="mr-4 text-gray-500 w-5 h-5"></i> ${state.settings.email}
                  </div>
                  <div class="flex space-x-6 pt-4 items-center">
-                    <a href="${state.settings.instagram || '#'}" target="_blank" class="text-gray-500 hover:text-white transition-colors"><i data-lucide="instagram" class="w-6 h-6"></i></a>
-                    <a href="${state.settings.whatsapp || '#'}" target="_blank" class="text-gray-500 hover:text-white transition-colors">
+                    <a href="${esc(state.settings.instagram || '#')}" target="_blank" class="text-gray-500 hover:text-white transition-colors"><i data-lucide="instagram" class="w-6 h-6"></i></a>
+                    <a href="${esc(state.settings.whatsapp || '#')}" target="_blank" class="text-gray-500 hover:text-white transition-colors">
                       <svg class="w-6 h-6" viewBox="0 0 24 24" fill="currentColor"><path d="M12.031 0C5.394 0 0 5.394 0 12.031c0 2.12.548 4.185 1.589 6.002L.055 24l6.143-1.611a11.96 11.96 0 0 0 5.833 1.517h.005c6.634 0 12.028-5.394 12.03-12.03A11.97 11.97 0 0 0 20.537 3.52 11.97 11.97 0 0 0 12.031 0zm0 21.895h-.004a9.92 9.92 0 0 1-5.06-1.378l-.363-.215-3.766.988 1.006-3.673-.236-.375a9.92 9.92 0 0 1-1.518-5.293c.002-5.485 4.468-9.948 9.953-9.948 2.658 0 5.156 1.037 7.034 2.915a9.93 9.93 0 0 1 2.912 7.036c-.003 5.485-4.469 9.943-9.957 9.943zm5.457-7.447c-.299-.15-1.77-.875-2.044-.975-.274-.1-.472-.15-.672.15-.198.3-.77.975-.944 1.175-.174.2-.349.225-.648.075-.298-.15-1.263-.465-2.406-1.485-.89-.794-1.49-1.774-1.664-2.074-.174-.3-.019-.462.13-.612.135-.135.299-.35.449-.525.15-.175.2-.3.3-.5.1-.2.05-.375-.025-.525-.075-.15-.672-1.625-.922-2.225-.243-.585-.49-.505-.672-.515a12.95 12.95 0 0 0-.573-.01c-.2 0-.523.075-.797.375-.274.3-1.047 1.025-1.047 2.5 0 1.475 1.072 2.9 1.222 3.1.15.2 2.112 3.225 5.112 4.525.714.309 1.27.493 1.705.63.716.229 1.369.196 1.884.119.575-.086 1.77-.725 2.02-1.425.25-.7.25-1.3.175-1.425-.075-.125-.274-.2-.573-.35z"/></svg>
                     </a>
-                    <a href="${state.settings.linkedin || '#'}" target="_blank" class="text-gray-500 hover:text-white transition-colors"><i data-lucide="linkedin" class="w-6 h-6"></i></a>
+                    <a href="${esc(state.settings.linkedin || '#')}" target="_blank" class="text-gray-500 hover:text-white transition-colors"><i data-lucide="linkedin" class="w-6 h-6"></i></a>
                  </div>
               </div>
             </div>
@@ -827,71 +873,191 @@
         area.innerHTML = `<h2 class="text-3xl font-semibold mb-8">Visão Geral</h2><div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-12"><div class="bg-[#111] border border-white/5 p-6 rounded-3xl"><p class="text-gray-500 text-sm mb-1">Total de Projetos</p><p class="text-3xl font-semibold">${stats.total}</p></div><div class="bg-[#111] border border-white/5 p-6 rounded-3xl"><p class="text-gray-500 text-sm mb-1">Artes</p><p class="text-3xl font-semibold">${stats.arts}</p></div><div class="bg-[#111] border border-white/5 p-6 rounded-3xl"><p class="text-gray-500 text-sm mb-1">Vídeos</p><p class="text-3xl font-semibold">${stats.videos}</p></div><div class="bg-[#111] border border-white/5 p-6 rounded-3xl"><p class="text-gray-500 text-sm mb-1">Em Destaque</p><p class="text-3xl font-semibold">${stats.featured}</p></div></div>`;
       } else if (state.adminTab === 'add') {
         const p = state.editingProject;
-        area.innerHTML = `<div class="max-w-3xl"><h2 class="text-3xl font-semibold mb-8">${p ? 'Editar Projeto' : 'Novo Projeto'}</h2><form id="admin-project-form" class="space-y-6 bg-[#111] p-8 rounded-3xl border border-white/5"><div class="grid grid-cols-2 gap-6"><div class="col-span-2 md:col-span-1"><label class="block text-sm text-gray-400 mb-2">Título</label><input type="text" name="title" value="${p?.title || ''}" class="w-full bg-[#1a1a1a] border border-white/5 rounded-xl p-3 text-white"/></div><div class="col-span-2 md:col-span-1"><label class="block text-sm text-gray-400 mb-2">Categoria</label><select name="category" class="w-full bg-[#1a1a1a] border border-white/5 rounded-xl p-3 text-white">${state.categories.map(c => `<option value="${c}" ${p?.category === c ? 'selected' : ''}>${c}</option>`).join('')}</select></div><div class="col-span-2 md:col-span-1"><label class="block text-sm text-gray-400 mb-2">Tipo</label><select name="type" id="project-type-select" class="w-full bg-[#1a1a1a] border border-white/5 rounded-xl p-3 text-white"><option value="arte" ${p?.type === 'arte' ? 'selected' : ''}>Arte</option><option value="video" ${p?.type === 'video' ? 'selected' : ''}>Vídeo</option><option value="foto" ${p?.type === 'foto' ? 'selected' : ''}>Fotografia</option></select></div><div class="col-span-2 md:col-span-1"><label class="flex items-center space-x-3"><input type="checkbox" name="isFeatured" ${p?.isFeatured ? 'checked' : ''} class="w-5 h-5"/><span class="text-sm text-gray-300">Destacar na Home</span></label></div><div class="col-span-2"><label class="block text-sm text-gray-400 mb-2">URL do Vídeo (YouTube, Google Drive ou link direto .mp4)</label><input type="url" name="videoUrl" id="project-video-url" value="${p?.videoUrl || ''}" placeholder="https://www.youtube.com/watch?v=... ou link do Drive" class="w-full bg-[#1a1a1a] border border-white/5 rounded-xl p-3 text-white"/><p class="text-xs text-gray-500 mt-2">Ao colar um link do YouTube ou Drive, a capa será preenchida automaticamente.</p></div><div class="col-span-2"><label class="block text-sm text-gray-400 mb-2">URL da Imagem (capa)</label><input type="url" name="imageUrl" id="project-image-url" value="${p?.imageUrl || ''}" placeholder="https://..." class="w-full bg-[#1a1a1a] border border-white/5 rounded-xl p-3 text-white"/><div id="project-image-preview" class="mt-3 hidden"><img src="" alt="Preview" class="w-full max-h-48 object-cover rounded-xl border border-white/10"/></div></div><div class="col-span-2"><label class="block text-sm text-gray-400 mb-2">Descrição</label><textarea name="description" rows="4" class="w-full bg-[#1a1a1a] border border-white/5 rounded-xl p-3 text-white">${p?.description || ''}</textarea></div></div><div class="pt-4 flex justify-end space-x-4"><button type="button" onclick="setAdminTab('edit')" class="px-6 py-3 rounded-xl text-gray-400">Cancelar</button><button type="submit" class="px-6 py-3 rounded-xl bg-white text-black font-medium">${p ? 'Salvar' : 'Salvar'}</button></div></form></div>`;
+        area.innerHTML = `
+          <div class="max-w-3xl">
+            <h2 class="text-3xl font-semibold mb-8">${p ? 'Editar Projeto' : 'Novo Projeto'}</h2>
+            <form id="admin-project-form" class="space-y-6 bg-[#111] p-8 rounded-3xl border border-white/5">
+              <div class="grid grid-cols-2 gap-6">
+                <div class="col-span-2 md:col-span-1">
+                  <label class="block text-sm text-gray-400 mb-2">Título</label>
+                  <input type="text" name="title" value="${esc(p?.title)}" class="w-full bg-[#1a1a1a] border border-white/5 rounded-xl p-3 text-white"/>
+                </div>
+                <div class="col-span-2 md:col-span-1">
+                  <label class="block text-sm text-gray-400 mb-2">Categoria</label>
+                  <select name="category" class="w-full bg-[#1a1a1a] border border-white/5 rounded-xl p-3 text-white">${state.categories.map(c => `<option value="${esc(c)}" ${p?.category === c ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select>
+                </div>
+                <div class="col-span-2 md:col-span-1">
+                  <label class="block text-sm text-gray-400 mb-2">Tipo</label>
+                  <select name="type" class="w-full bg-[#1a1a1a] border border-white/5 rounded-xl p-3 text-white">
+                    <option value="arte" ${p?.type === 'arte' ? 'selected' : ''}>Arte</option>
+                    <option value="video" ${p?.type === 'video' ? 'selected' : ''}>Vídeo</option>
+                    <option value="foto" ${p?.type === 'foto' ? 'selected' : ''}>Fotografia</option>
+                  </select>
+                </div>
+                <div class="col-span-2 md:col-span-1 flex items-end">
+                  <label class="flex items-center space-x-3 pb-3"><input type="checkbox" name="isFeatured" ${p?.isFeatured ? 'checked' : ''} class="w-5 h-5"/><span class="text-sm text-gray-300">Destacar na Home</span></label>
+                </div>
 
-        // --- Auto-fill de capa ---
-        const videoInput = document.getElementById('project-video-url');
-        const imageInput = document.getElementById('project-image-url');
-        const previewDiv = document.getElementById('project-image-preview');
+                <div class="col-span-2">
+                  <label class="block text-sm text-gray-400 mb-2">URL do Vídeo (YouTube ou Google Drive)</label>
+                  <input type="url" name="videoUrl" value="${esc(p?.videoUrl)}" placeholder="Cole o link do YouTube ou do Google Drive" class="w-full bg-[#1a1a1a] border border-white/5 rounded-xl p-3 text-white"/>
+                  <p class="text-xs text-gray-500 mt-2">A capa é buscada automaticamente do link. No Drive, o vídeo precisa estar compartilhado como "Qualquer pessoa com o link".</p>
+                </div>
 
-        const updatePreview = (url) => {
-          if (url) {
-            previewDiv.classList.remove('hidden');
-            previewDiv.querySelector('img').src = url;
-          } else {
-            previewDiv.classList.add('hidden');
-            previewDiv.querySelector('img').src = '';
-          }
-        };
+                <div class="col-span-2">
+                  <div class="flex items-center justify-between mb-2">
+                    <label class="block text-sm text-gray-400">URL da Imagem / Capa</label>
+                    <button type="button" id="btn-detect-cover" class="text-xs text-gray-400 hover:text-white underline">Buscar capa do vídeo</button>
+                  </div>
+                  <input type="url" name="imageUrl" value="${esc(p?.imageUrl)}" placeholder="https://... (preenchida automaticamente para vídeos)" class="w-full bg-[#1a1a1a] border border-white/5 rounded-xl p-3 text-white"/>
+                  <p id="cover-status" class="text-xs text-gray-500 mt-2 min-h-[1rem]"></p>
+                  <div id="cover-preview-wrap" class="mt-3 ${p?.imageUrl ? '' : 'hidden'}">
+                    <img id="cover-preview" src="${esc(p?.imageUrl)}" class="max-h-40 rounded-xl border border-white/10 object-cover" onerror="this.style.visibility='hidden'" onload="this.style.visibility='visible'"/>
+                  </div>
+                </div>
 
-        // Se já existe imagem no editing, mostra o preview
-        if (imageInput.value) updatePreview(imageInput.value);
+                <div class="col-span-2">
+                  <label class="block text-sm text-gray-400 mb-2">Descrição</label>
+                  <textarea name="description" rows="4" class="w-full bg-[#1a1a1a] border border-white/5 rounded-xl p-3 text-white">${esc(p?.description)}</textarea>
+                </div>
+              </div>
+              <div class="pt-4 flex justify-end space-x-4">
+                <button type="button" onclick="setAdminTab('edit')" class="px-6 py-3 rounded-xl text-gray-400">Cancelar</button>
+                <button type="submit" class="px-6 py-3 rounded-xl bg-white text-black font-medium">Salvar</button>
+              </div>
+            </form>
+          </div>`;
 
-        videoInput.addEventListener('input', () => {
-          const thumb = getVideoThumbnail(videoInput.value.trim());
-          if (thumb) {
-            imageInput.value = thumb;
-            updatePreview(thumb);
-          }
-        });
-
-        // Atualiza o preview manualmente também
-        imageInput.addEventListener('input', () => updatePreview(imageInput.value.trim()));
-
-        document.getElementById('admin-project-form').addEventListener('submit', handleProjectSubmit);
+        const form = document.getElementById('admin-project-form');
+        form.addEventListener('submit', handleProjectSubmit);
+        setupCoverAutofill(form, p);
       } else if (state.adminTab === 'edit') {
-        area.innerHTML = `<h2 class="text-3xl font-semibold mb-8">Gerenciar Projetos</h2><div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">${state.projects.map(p => `<div class="bg-[#111] border border-white/5 rounded-2xl overflow-hidden"><div class="aspect-video"><img src="${p.imageUrl}" class="w-full h-full object-cover"/></div><div class="p-5"><h3 class="font-medium text-lg">${p.title}</h3><p class="text-sm text-gray-400 mb-4">${p.category}</p><div class="flex justify-between"><button onclick="editProject('${p.id}')" class="text-sm text-gray-400 hover:text-white">Editar</button><button onclick="deleteProject('${p.id}')" class="text-sm text-red-500 hover:text-red-400">Excluir</button></div></div></div>`).join('')}</div>`;
+        area.innerHTML = `<h2 class="text-3xl font-semibold mb-8">Gerenciar Projetos</h2><div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">${state.projects.map(p => `<div class="bg-[#111] border border-white/5 rounded-2xl overflow-hidden"><div class="aspect-video bg-black"><img src="${esc(p.imageUrl)}" class="w-full h-full object-cover" onerror="imgFallback(this)"/></div><div class="p-5"><h3 class="font-medium text-lg">${esc(p.title)}</h3><p class="text-sm text-gray-400 mb-4">${esc(p.category)}</p><div class="flex justify-between"><button onclick="editProject('${p.id}')" class="text-sm text-gray-400 hover:text-white">Editar</button><button onclick="deleteProject('${p.id}')" class="text-sm text-red-500 hover:text-red-400">Excluir</button></div></div></div>`).join('')}</div>`;
       } else if (state.adminTab === 'categories') {
-        area.innerHTML = `<div class="max-w-2xl"><h2 class="text-3xl font-semibold mb-8">Categorias</h2><form id="admin-category-form" class="flex space-x-4 mb-8"><input type="text" id="new-cat-input" placeholder="Nova Categoria..." class="flex-1 bg-[#111] border border-white/5 rounded-xl p-3 text-white"/><button type="submit" class="px-6 py-3 rounded-xl bg-white text-black font-medium">Adicionar</button></form><div class="bg-[#111] border border-white/5 rounded-2xl p-2">${state.categories.map(c => `<div class="flex justify-between items-center p-4"><span>${c}</span><button onclick="deleteCategory('${c}')" class="text-red-500">Excluir</button></div>`).join('')}</div></div>`;
+        area.innerHTML = `<div class="max-w-2xl"><h2 class="text-3xl font-semibold mb-8">Categorias</h2><form id="admin-category-form" class="flex space-x-4 mb-8"><input type="text" id="new-cat-input" placeholder="Nova Categoria..." class="flex-1 bg-[#111] border border-white/5 rounded-xl p-3 text-white"/><button type="submit" class="px-6 py-3 rounded-xl bg-white text-black font-medium">Adicionar</button></form><div class="bg-[#111] border border-white/5 rounded-2xl p-2">${state.categories.map(c => `<div class="flex justify-between items-center p-4"><span>${esc(c)}</span><button onclick="deleteCategory('${c.replace(/'/g, "\\'")}')" class="text-red-500">Excluir</button></div>`).join('')}</div></div>`;
         document.getElementById('admin-category-form').addEventListener('submit', handleCategorySubmit);
       } else if (state.adminTab === 'settings') {
-        area.innerHTML = `<div class="max-w-3xl"><h2 class="text-3xl font-semibold mb-8">Configurações</h2><form id="admin-settings-form" class="space-y-6 bg-[#111] p-8 rounded-3xl"><div><label class="block text-sm text-gray-400 mb-2">Nome</label><input type="text" name="heroName" value="${state.settings.heroName}" class="w-full bg-[#1a1a1a] border border-white/5 rounded-xl p-3 text-white"/></div><div><label class="block text-sm text-gray-400 mb-2">Subtítulo</label><input type="text" name="heroSubtitle" value="${state.settings.heroSubtitle}" class="w-full bg-[#1a1a1a] border border-white/5 rounded-xl p-3 text-white"/></div><div><label class="block text-sm text-gray-400 mb-2">Frase</label><textarea name="heroPhrase" rows="2" class="w-full bg-[#1a1a1a] border border-white/5 rounded-xl p-3 text-white">${state.settings.heroPhrase}</textarea></div><div><label class="block text-sm text-gray-400 mb-2">Imagem Hero</label><input type="url" name="heroImage" value="${state.settings.heroImage}" class="w-full bg-[#1a1a1a] border border-white/5 rounded-xl p-3 text-white"/></div><div><label class="block text-sm text-gray-400 mb-2">Sobre</label><textarea name="aboutText" rows="4" class="w-full bg-[#1a1a1a] border border-white/5 rounded-xl p-3 text-white">${state.settings.aboutText}</textarea></div><div><label class="block text-sm text-gray-400 mb-2">Email</label><input type="email" name="email" value="${state.settings.email}" class="w-full bg-[#1a1a1a] border border-white/5 rounded-xl p-3 text-white"/></div><div><label class="block text-sm text-gray-400 mb-2">Instagram</label><input type="url" name="instagram" value="${state.settings.instagram}" class="w-full bg-[#1a1a1a] border border-white/5 rounded-xl p-3 text-white"/></div><div><label class="block text-sm text-gray-400 mb-2">WhatsApp</label><input type="url" name="whatsapp" value="${state.settings.whatsapp}" class="w-full bg-[#1a1a1a] border border-white/5 rounded-xl p-3 text-white"/></div><div><label class="block text-sm text-gray-400 mb-2">LinkedIn</label><input type="url" name="linkedin" value="${state.settings.linkedin}" class="w-full bg-[#1a1a1a] border border-white/5 rounded-xl p-3 text-white"/></div><button type="submit" class="px-6 py-3 rounded-xl bg-white text-black font-medium">Salvar</button></form></div>`;
+        area.innerHTML = `<div class="max-w-3xl"><h2 class="text-3xl font-semibold mb-8">Configurações</h2><form id="admin-settings-form" class="space-y-6 bg-[#111] p-8 rounded-3xl"><div><label class="block text-sm text-gray-400 mb-2">Nome</label><input type="text" name="heroName" value="${esc(state.settings.heroName)}" class="w-full bg-[#1a1a1a] border border-white/5 rounded-xl p-3 text-white"/></div><div><label class="block text-sm text-gray-400 mb-2">Subtítulo</label><input type="text" name="heroSubtitle" value="${esc(state.settings.heroSubtitle)}" class="w-full bg-[#1a1a1a] border border-white/5 rounded-xl p-3 text-white"/></div><div><label class="block text-sm text-gray-400 mb-2">Frase</label><textarea name="heroPhrase" rows="2" class="w-full bg-[#1a1a1a] border border-white/5 rounded-xl p-3 text-white">${esc(state.settings.heroPhrase)}</textarea></div><div><label class="block text-sm text-gray-400 mb-2">Imagem Hero</label><input type="url" name="heroImage" value="${esc(state.settings.heroImage)}" class="w-full bg-[#1a1a1a] border border-white/5 rounded-xl p-3 text-white"/></div><div><label class="block text-sm text-gray-400 mb-2">Sobre</label><textarea name="aboutText" rows="4" class="w-full bg-[#1a1a1a] border border-white/5 rounded-xl p-3 text-white">${esc(state.settings.aboutText)}</textarea></div><div><label class="block text-sm text-gray-400 mb-2">Email</label><input type="email" name="email" value="${esc(state.settings.email)}" class="w-full bg-[#1a1a1a] border border-white/5 rounded-xl p-3 text-white"/></div><div><label class="block text-sm text-gray-400 mb-2">Instagram</label><input type="url" name="instagram" value="${esc(state.settings.instagram)}" class="w-full bg-[#1a1a1a] border border-white/5 rounded-xl p-3 text-white"/></div><div><label class="block text-sm text-gray-400 mb-2">WhatsApp</label><input type="url" name="whatsapp" value="${esc(state.settings.whatsapp)}" class="w-full bg-[#1a1a1a] border border-white/5 rounded-xl p-3 text-white"/></div><div><label class="block text-sm text-gray-400 mb-2">LinkedIn</label><input type="url" name="linkedin" value="${esc(state.settings.linkedin)}" class="w-full bg-[#1a1a1a] border border-white/5 rounded-xl p-3 text-white"/></div><button type="submit" class="px-6 py-3 rounded-xl bg-white text-black font-medium">Salvar</button></form></div>`;
         document.getElementById('admin-settings-form').addEventListener('submit', handleSettingsSubmit);
       }
+    }
+
+    // --- Preenchimento automático da capa a partir do link do vídeo ---
+    function setupCoverAutofill(form, project) {
+      const vInput = form.videoUrl;
+      const iInput = form.imageUrl;
+      const typeSel = form.type;
+      const status = document.getElementById('cover-status');
+      const previewWrap = document.getElementById('cover-preview-wrap');
+      const preview = document.getElementById('cover-preview');
+      const btn = document.getElementById('btn-detect-cover');
+
+      const isAutoUrl = (u) => !!u && (u.includes('img.youtube.com') || u.includes('drive.google.com/thumbnail'));
+      // 1 = pode ser sobrescrita automaticamente; 0 = o usuário colocou manualmente
+      iInput.dataset.auto = (!iInput.value.trim() || isAutoUrl(iInput.value)) ? '1' : '0';
+
+      const updatePreview = () => {
+        const v = iInput.value.trim();
+        if (v) {
+          previewWrap.classList.remove('hidden');
+          preview.style.visibility = 'visible';
+          preview.src = formatDriveUrl(v);
+        } else {
+          previewWrap.classList.add('hidden');
+        }
+      };
+
+      let seq = 0;
+      const autoFill = async (force) => {
+        const url = vInput.value.trim();
+        if (!url) return;
+        const info = getVideoInfo(url);
+        if (info?.kind === 'youtube' && typeSel.value !== 'video') typeSel.value = 'video';
+        if (!force && iInput.value.trim() && iInput.dataset.auto !== '1') return;
+
+        const mine = ++seq;
+        status.className = 'text-xs text-gray-500 mt-2 min-h-[1rem]';
+        status.textContent = 'Buscando capa do vídeo...';
+        const thumb = await resolveThumbnail(url);
+        if (mine !== seq) return; // chegou resposta mais nova
+
+        if (thumb) {
+          iInput.value = thumb;
+          iInput.dataset.auto = '1';
+          status.className = 'text-xs text-green-400 mt-2 min-h-[1rem]';
+          status.textContent = 'Capa carregada automaticamente ✓';
+        } else if (info?.kind === 'file') {
+          status.className = 'text-xs text-yellow-400 mt-2 min-h-[1rem]';
+          status.textContent = 'Para links diretos (mp4) cole a URL da capa manualmente.';
+        } else {
+          status.className = 'text-xs text-yellow-400 mt-2 min-h-[1rem]';
+          status.textContent = 'Não consegui carregar a capa. Se for do Drive, deixe o vídeo compartilhado como "Qualquer pessoa com o link" ou cole a capa manualmente.';
+        }
+        updatePreview();
+      };
+
+      let timer;
+      vInput.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(() => autoFill(false), 500); });
+      vInput.addEventListener('paste', () => { clearTimeout(timer); timer = setTimeout(() => autoFill(false), 150); });
+      iInput.addEventListener('input', () => { iInput.dataset.auto = '0'; status.textContent = ''; updatePreview(); });
+      btn.addEventListener('click', () => autoFill(true));
+
+      // Ao editar um projeto de vídeo sem capa, já tenta preencher
+      if (vInput.value.trim() && !iInput.value.trim()) autoFill(false);
     }
 
     async function handleProjectSubmit(e) {
       e.preventDefault();
       const form = e.target;
-      const projectData = {
-        id: state.editingProject?.id || Date.now().toString(),
-        title: form.title.value,
-        category: form.category.value,
-        type: form.type.value,
-        isFeatured: form.isFeatured.checked,
-        imageUrl: form.imageUrl.value,
-        videoUrl: form.videoUrl.value,
-        description: form.description.value,
-        createdAt: state.editingProject?.createdAt || Date.now(),
-        updatedAt: Date.now()
-      };
-      if (state.editingProject) {
-        const index = state.projects.findIndex(p => p.id === state.editingProject.id);
-        if (index !== -1) state.projects[index] = projectData;
-      } else { state.projects.unshift(projectData); }
-      await apiPost('saveProject', projectData);
-      setAdminTab('edit');
-      renderAllSections();
+      const btn = form.querySelector('button[type="submit"]');
+      const originalText = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = 'Salvando...';
+
+      try {
+        const videoUrl = form.videoUrl.value.trim();
+        let imageUrl = form.imageUrl.value.trim();
+
+        // Se não tem capa e tem link de vídeo, busca a capa antes de salvar
+        if (!imageUrl && videoUrl) {
+          imageUrl = await resolveThumbnail(videoUrl);
+          if (!imageUrl) imageUrl = getAutoThumb(videoUrl);
+        }
+
+        const projectData = {
+          id: state.editingProject?.id || Date.now().toString(),
+          title: form.title.value,
+          category: form.category.value,
+          type: form.type.value,
+          isFeatured: form.isFeatured.checked,
+          imageUrl: imageUrl,       // <- a capa é salva na planilha
+          videoUrl: videoUrl,
+          description: form.description.value,
+          createdAt: state.editingProject?.createdAt || Date.now(),
+          updatedAt: Date.now()
+        };
+
+        const result = await apiPost('saveProject', projectData);
+        if (result && result.status === 'error') {
+          alert(result.message || 'Erro ao salvar o projeto.');
+          return;
+        }
+
+        if (state.editingProject) {
+          const index = state.projects.findIndex(p => p.id === state.editingProject.id);
+          if (index !== -1) state.projects[index] = projectData;
+        } else {
+          state.projects.unshift(projectData);
+        }
+
+        setAdminTab('edit');
+        renderAllSections();
+      } catch (err) {
+        alert('Erro ao salvar: ' + err.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = originalText;
+      }
     }
 
     window.editProject = function(id) {
@@ -999,6 +1165,61 @@
       }
     });
 
+    // --- Monta o player conforme o tipo de link (YouTube / Drive / arquivo direto) ---
+    function buildVideoPlayer(project, mediaContainer) {
+      const info = getVideoInfo(project.videoUrl);
+      const fallbackLink = project.videoUrl
+        ? `<br><a href="${esc(project.videoUrl)}" target="_blank" rel="noopener" class="underline text-white">Abrir vídeo em nova aba</a>`
+        : '';
+
+      if (!info) return false;
+
+      if (info.kind === 'youtube') {
+        mediaContainer.innerHTML = `
+          <div class="media-wrap">
+            <iframe
+              src="https://www.youtube.com/embed/${info.id}?autoplay=1&rel=0&modestbranding=1&playsinline=1"
+              title="${esc(project.title)}"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+              referrerpolicy="strict-origin-when-cross-origin"
+              allowfullscreen></iframe>
+          </div>`;
+        return true;
+      }
+
+      if (info.kind === 'drive') {
+        mediaContainer.innerHTML = `
+          <div class="media-wrap">
+            <iframe
+              src="https://drive.google.com/file/d/${info.id}/preview"
+              title="${esc(project.title)}"
+              allow="autoplay; fullscreen"
+              allowfullscreen></iframe>
+          </div>`;
+        return true;
+      }
+
+      if (info.kind === 'drive-invalid') {
+        mediaContainer.innerHTML = `<div class="error-message">Link do Google Drive inválido.${fallbackLink}</div>`;
+        return true;
+      }
+
+      // Arquivo direto (mp4, webm...)
+      mediaContainer.innerHTML = `
+        <div class="media-wrap">
+          <video id="plyr-video" controls playsinline preload="metadata" poster="${esc(project.imageUrl)}" style="width:100%; height:100%; object-fit:contain;">
+            <source src="${esc(info.url)}">
+          </video>
+        </div>`;
+      setTimeout(() => {
+        const playerElement = document.getElementById('plyr-video');
+        if (playerElement && window.Plyr) {
+          currentPlyr = new Plyr(playerElement, { controls: ['play-large', 'play', 'progress', 'current-time', 'mute', 'volume', 'settings', 'pip', 'fullscreen'] });
+        }
+      }, 100);
+      return true;
+    }
+
     window.openProjectModal = function(id) {
       const project = state.projects.find(p => p.id === id);
       if (!project) return;
@@ -1012,36 +1233,14 @@
       document.getElementById('project-modal-description').textContent = project.description || '';
 
       if (currentPlyr) { currentPlyr.destroy(); currentPlyr = null; }
+      mediaContainer.innerHTML = '';
 
+      let rendered = false;
       if (project.type === 'video' && project.videoUrl) {
-        
-        if (isYouTubeUrl(project.videoUrl)) {
-          const ytId = getYouTubeId(project.videoUrl);
-          if (!ytId) {
-            mediaContainer.innerHTML = `<div class="error-message">Link do YouTube inválido.</div>`;
-          } else {
-            mediaContainer.innerHTML = `<div class="w-full h-full flex items-center justify-center"><iframe src="https://www.youtube.com/embed/${ytId}?autoplay=0&rel=0" width="100%" height="100%" style="border:none; border-radius:0.75rem;" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen frameborder="0"></iframe></div>`;
-          }
-        }
-        else if (isGoogleDriveUrl(project.videoUrl)) {
-          const fileId = getGoogleDriveFileId(project.videoUrl);
-          if (!fileId) {
-            mediaContainer.innerHTML = `<div class="error-message">Link do Google Drive inválido.</div>`;
-          } else {
-            mediaContainer.innerHTML = `<div class="w-full h-full flex items-center justify-center"><iframe src="https://drive.google.com/file/d/${fileId}/preview" width="100%" height="100%" style="border:none; border-radius:0.75rem;" allow="autoplay; fullscreen" frameborder="0" allowfullscreen></iframe></div>`;
-          }
-        }
-        else {
-          mediaContainer.innerHTML = `<div class="w-full h-full flex items-center justify-center"><video id="plyr-video" controls preload="metadata" style="width:100%; height:100%; object-fit:contain;"><source src="${project.videoUrl}" type="video/mp4"></video></div>`;
-          setTimeout(() => {
-            const playerElement = document.getElementById('plyr-video');
-            if (playerElement) {
-              currentPlyr = new Plyr(playerElement, { controls: ['play-large', 'play', 'progress', 'current-time', 'mute', 'volume', 'settings', 'pip', 'fullscreen'] });
-            }
-          }, 100);
-        }
-      } else {
-        mediaContainer.innerHTML = `<div class="w-full h-full flex items-center justify-center"><img src="${project.imageUrl}" class="max-w-full max-h-full object-contain rounded-2xl"/></div>`;
+        rendered = buildVideoPlayer(project, mediaContainer);
+      }
+      if (!rendered) {
+        mediaContainer.innerHTML = `<div class="media-wrap"><img src="${esc(project.imageUrl)}" class="max-w-full max-h-full object-contain rounded-2xl" onerror="imgFallback(this)"/></div>`;
       }
 
       const suggestionContainer = document.getElementById('project-modal-suggestion');
@@ -1050,7 +1249,7 @@
       
       if (suggestedProject) {
         suggestionContainer.classList.remove('hidden');
-        suggestionCard.innerHTML = `<div class="w-24 h-24 flex-shrink-0 bg-black rounded-xl overflow-hidden"><img src="${suggestedProject.imageUrl}" class="w-full h-full object-cover"/></div><div class="flex-1 pl-4"><span class="text-[10px] uppercase text-gray-500">${suggestedProject.category}</span><h5 class="text-sm font-medium">${suggestedProject.title}</h5></div>`;
+        suggestionCard.innerHTML = `<div class="w-24 h-24 flex-shrink-0 bg-black rounded-xl overflow-hidden"><img src="${esc(suggestedProject.imageUrl)}" class="w-full h-full object-cover" onerror="imgFallback(this)"/></div><div class="flex-1 pl-4"><span class="text-[10px] uppercase text-gray-500">${esc(suggestedProject.category)}</span><h5 class="text-sm font-medium">${esc(suggestedProject.title)}</h5></div>`;
         suggestionCard.onclick = () => openProjectModal(suggestedProject.id);
       } else {
         suggestionContainer.classList.add('hidden');
@@ -1071,8 +1270,13 @@
       modal.classList.add('opacity-0');
       box.classList.remove('scale-100');
       box.classList.add('scale-95');
+      // esvazia a mídia para parar o áudio/vídeo do iframe
       setTimeout(() => { modal.classList.add('hidden'); document.getElementById('project-modal-media').innerHTML = ''; }, 300);
     };
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !document.getElementById('project-modal').classList.contains('hidden')) closeProjectModal();
+    });
 
     function toggleMobileMenu() {
       const menu = document.getElementById('mobile-menu');
