@@ -307,7 +307,6 @@
       return url && (url.includes('drive.google.com') || url.includes('docs.google.com'));
     }
 
-    // --- NOVO: detectar YouTube ---
     function getYouTubeId(url) {
       if (!url) return null;
       const patterns = [
@@ -323,6 +322,30 @@
 
     function isYouTubeUrl(url) {
       return url && (url.includes('youtube.com') || url.includes('youtu.be'));
+    }
+
+    // --- NOVO: gerar URL da capa automaticamente a partir do link do vídeo ---
+    function getVideoThumbnail(videoUrl) {
+      if (!videoUrl) return '';
+
+      // YouTube → thumbnail oficial
+      if (isYouTubeUrl(videoUrl)) {
+        const ytId = getYouTubeId(videoUrl);
+        if (ytId) {
+          return `https://img.youtube.com/vi/${ytId}/maxresdefault.jpg`;
+        }
+      }
+
+      // Google Drive → thumbnail do lh3
+      if (isGoogleDriveUrl(videoUrl)) {
+        const fileId = getGoogleDriveFileId(videoUrl);
+        if (fileId) {
+          return `https://lh3.googleusercontent.com/d/${fileId}`;
+        }
+      }
+
+      // Link direto → sem capa automática
+      return '';
     }
 
     const fetchData = async () => {
@@ -804,7 +827,37 @@
         area.innerHTML = `<h2 class="text-3xl font-semibold mb-8">Visão Geral</h2><div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-12"><div class="bg-[#111] border border-white/5 p-6 rounded-3xl"><p class="text-gray-500 text-sm mb-1">Total de Projetos</p><p class="text-3xl font-semibold">${stats.total}</p></div><div class="bg-[#111] border border-white/5 p-6 rounded-3xl"><p class="text-gray-500 text-sm mb-1">Artes</p><p class="text-3xl font-semibold">${stats.arts}</p></div><div class="bg-[#111] border border-white/5 p-6 rounded-3xl"><p class="text-gray-500 text-sm mb-1">Vídeos</p><p class="text-3xl font-semibold">${stats.videos}</p></div><div class="bg-[#111] border border-white/5 p-6 rounded-3xl"><p class="text-gray-500 text-sm mb-1">Em Destaque</p><p class="text-3xl font-semibold">${stats.featured}</p></div></div>`;
       } else if (state.adminTab === 'add') {
         const p = state.editingProject;
-        area.innerHTML = `<div class="max-w-3xl"><h2 class="text-3xl font-semibold mb-8">${p ? 'Editar Projeto' : 'Novo Projeto'}</h2><form id="admin-project-form" class="space-y-6 bg-[#111] p-8 rounded-3xl border border-white/5"><div class="grid grid-cols-2 gap-6"><div class="col-span-2 md:col-span-1"><label class="block text-sm text-gray-400 mb-2">Título</label><input type="text" name="title" value="${p?.title || ''}" class="w-full bg-[#1a1a1a] border border-white/5 rounded-xl p-3 text-white"/></div><div class="col-span-2 md:col-span-1"><label class="block text-sm text-gray-400 mb-2">Categoria</label><select name="category" class="w-full bg-[#1a1a1a] border border-white/5 rounded-xl p-3 text-white">${state.categories.map(c => `<option value="${c}" ${p?.category === c ? 'selected' : ''}>${c}</option>`).join('')}</select></div><div class="col-span-2 md:col-span-1"><label class="block text-sm text-gray-400 mb-2">Tipo</label><select name="type" class="w-full bg-[#1a1a1a] border border-white/5 rounded-xl p-3 text-white"><option value="arte" ${p?.type === 'arte' ? 'selected' : ''}>Arte</option><option value="video" ${p?.type === 'video' ? 'selected' : ''}>Vídeo</option><option value="foto" ${p?.type === 'foto' ? 'selected' : ''}>Fotografia</option></select></div><div class="col-span-2 md:col-span-1"><label class="flex items-center space-x-3"><input type="checkbox" name="isFeatured" ${p?.isFeatured ? 'checked' : ''} class="w-5 h-5"/><span class="text-sm text-gray-300">Destacar na Home</span></label></div><div class="col-span-2"><label class="block text-sm text-gray-400 mb-2">URL do Vídeo (YouTube, Google Drive ou link direto .mp4)</label><input type="url" name="videoUrl" value="${p?.videoUrl || ''}" placeholder="https://www.youtube.com/watch?v=... ou link do Drive" class="w-full bg-[#1a1a1a] border border-white/5 rounded-xl p-3 text-white"/></div><div class="col-span-2"><label class="block text-sm text-gray-400 mb-2">URL da Imagem</label><input type="url" name="imageUrl" value="${p?.imageUrl || ''}" placeholder="https://..." class="w-full bg-[#1a1a1a] border border-white/5 rounded-xl p-3 text-white"/></div><div class="col-span-2"><label class="block text-sm text-gray-400 mb-2">Descrição</label><textarea name="description" rows="4" class="w-full bg-[#1a1a1a] border border-white/5 rounded-xl p-3 text-white">${p?.description || ''}</textarea></div></div><div class="pt-4 flex justify-end space-x-4"><button type="button" onclick="setAdminTab('edit')" class="px-6 py-3 rounded-xl text-gray-400">Cancelar</button><button type="submit" class="px-6 py-3 rounded-xl bg-white text-black font-medium">${p ? 'Salvar' : 'Salvar'}</button></div></form></div>`;
+        area.innerHTML = `<div class="max-w-3xl"><h2 class="text-3xl font-semibold mb-8">${p ? 'Editar Projeto' : 'Novo Projeto'}</h2><form id="admin-project-form" class="space-y-6 bg-[#111] p-8 rounded-3xl border border-white/5"><div class="grid grid-cols-2 gap-6"><div class="col-span-2 md:col-span-1"><label class="block text-sm text-gray-400 mb-2">Título</label><input type="text" name="title" value="${p?.title || ''}" class="w-full bg-[#1a1a1a] border border-white/5 rounded-xl p-3 text-white"/></div><div class="col-span-2 md:col-span-1"><label class="block text-sm text-gray-400 mb-2">Categoria</label><select name="category" class="w-full bg-[#1a1a1a] border border-white/5 rounded-xl p-3 text-white">${state.categories.map(c => `<option value="${c}" ${p?.category === c ? 'selected' : ''}>${c}</option>`).join('')}</select></div><div class="col-span-2 md:col-span-1"><label class="block text-sm text-gray-400 mb-2">Tipo</label><select name="type" id="project-type-select" class="w-full bg-[#1a1a1a] border border-white/5 rounded-xl p-3 text-white"><option value="arte" ${p?.type === 'arte' ? 'selected' : ''}>Arte</option><option value="video" ${p?.type === 'video' ? 'selected' : ''}>Vídeo</option><option value="foto" ${p?.type === 'foto' ? 'selected' : ''}>Fotografia</option></select></div><div class="col-span-2 md:col-span-1"><label class="flex items-center space-x-3"><input type="checkbox" name="isFeatured" ${p?.isFeatured ? 'checked' : ''} class="w-5 h-5"/><span class="text-sm text-gray-300">Destacar na Home</span></label></div><div class="col-span-2"><label class="block text-sm text-gray-400 mb-2">URL do Vídeo (YouTube, Google Drive ou link direto .mp4)</label><input type="url" name="videoUrl" id="project-video-url" value="${p?.videoUrl || ''}" placeholder="https://www.youtube.com/watch?v=... ou link do Drive" class="w-full bg-[#1a1a1a] border border-white/5 rounded-xl p-3 text-white"/><p class="text-xs text-gray-500 mt-2">Ao colar um link do YouTube ou Drive, a capa será preenchida automaticamente.</p></div><div class="col-span-2"><label class="block text-sm text-gray-400 mb-2">URL da Imagem (capa)</label><input type="url" name="imageUrl" id="project-image-url" value="${p?.imageUrl || ''}" placeholder="https://..." class="w-full bg-[#1a1a1a] border border-white/5 rounded-xl p-3 text-white"/><div id="project-image-preview" class="mt-3 hidden"><img src="" alt="Preview" class="w-full max-h-48 object-cover rounded-xl border border-white/10"/></div></div><div class="col-span-2"><label class="block text-sm text-gray-400 mb-2">Descrição</label><textarea name="description" rows="4" class="w-full bg-[#1a1a1a] border border-white/5 rounded-xl p-3 text-white">${p?.description || ''}</textarea></div></div><div class="pt-4 flex justify-end space-x-4"><button type="button" onclick="setAdminTab('edit')" class="px-6 py-3 rounded-xl text-gray-400">Cancelar</button><button type="submit" class="px-6 py-3 rounded-xl bg-white text-black font-medium">${p ? 'Salvar' : 'Salvar'}</button></div></form></div>`;
+
+        // --- Auto-fill de capa ---
+        const videoInput = document.getElementById('project-video-url');
+        const imageInput = document.getElementById('project-image-url');
+        const previewDiv = document.getElementById('project-image-preview');
+
+        const updatePreview = (url) => {
+          if (url) {
+            previewDiv.classList.remove('hidden');
+            previewDiv.querySelector('img').src = url;
+          } else {
+            previewDiv.classList.add('hidden');
+            previewDiv.querySelector('img').src = '';
+          }
+        };
+
+        // Se já existe imagem no editing, mostra o preview
+        if (imageInput.value) updatePreview(imageInput.value);
+
+        videoInput.addEventListener('input', () => {
+          const thumb = getVideoThumbnail(videoInput.value.trim());
+          if (thumb) {
+            imageInput.value = thumb;
+            updatePreview(thumb);
+          }
+        });
+
+        // Atualiza o preview manualmente também
+        imageInput.addEventListener('input', () => updatePreview(imageInput.value.trim()));
+
         document.getElementById('admin-project-form').addEventListener('submit', handleProjectSubmit);
       } else if (state.adminTab === 'edit') {
         area.innerHTML = `<h2 class="text-3xl font-semibold mb-8">Gerenciar Projetos</h2><div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">${state.projects.map(p => `<div class="bg-[#111] border border-white/5 rounded-2xl overflow-hidden"><div class="aspect-video"><img src="${p.imageUrl}" class="w-full h-full object-cover"/></div><div class="p-5"><h3 class="font-medium text-lg">${p.title}</h3><p class="text-sm text-gray-400 mb-4">${p.category}</p><div class="flex justify-between"><button onclick="editProject('${p.id}')" class="text-sm text-gray-400 hover:text-white">Editar</button><button onclick="deleteProject('${p.id}')" class="text-sm text-red-500 hover:text-red-400">Excluir</button></div></div></div>`).join('')}</div>`;
@@ -960,10 +1013,8 @@
 
       if (currentPlyr) { currentPlyr.destroy(); currentPlyr = null; }
 
-      // --- LÓGICA DE RENDERIZAÇÃO DE VÍDEO MELHORADA ---
       if (project.type === 'video' && project.videoUrl) {
         
-        // 1) YOUTUBE
         if (isYouTubeUrl(project.videoUrl)) {
           const ytId = getYouTubeId(project.videoUrl);
           if (!ytId) {
@@ -972,7 +1023,6 @@
             mediaContainer.innerHTML = `<div class="w-full h-full flex items-center justify-center"><iframe src="https://www.youtube.com/embed/${ytId}?autoplay=0&rel=0" width="100%" height="100%" style="border:none; border-radius:0.75rem;" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen frameborder="0"></iframe></div>`;
           }
         }
-        // 2) GOOGLE DRIVE
         else if (isGoogleDriveUrl(project.videoUrl)) {
           const fileId = getGoogleDriveFileId(project.videoUrl);
           if (!fileId) {
@@ -981,7 +1031,6 @@
             mediaContainer.innerHTML = `<div class="w-full h-full flex items-center justify-center"><iframe src="https://drive.google.com/file/d/${fileId}/preview" width="100%" height="100%" style="border:none; border-radius:0.75rem;" allow="autoplay; fullscreen" frameborder="0" allowfullscreen></iframe></div>`;
           }
         }
-        // 3) LINK DIRETO (.mp4, .webm, etc.) -> Plyr
         else {
           mediaContainer.innerHTML = `<div class="w-full h-full flex items-center justify-center"><video id="plyr-video" controls preload="metadata" style="width:100%; height:100%; object-fit:contain;"><source src="${project.videoUrl}" type="video/mp4"></video></div>`;
           setTimeout(() => {
