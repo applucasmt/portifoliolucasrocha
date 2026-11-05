@@ -409,7 +409,7 @@
               let img = formatDriveUrl(p.imageUrl);
               // Projetos de vídeo antigos sem capa: puxa do link automaticamente
               if (!img && p.type === 'video' && p.videoUrl) img = getAutoThumb(p.videoUrl);
-              return { ...p, imageUrl: img };
+              return { ...p, id: String(p.id), imageUrl: img };
             }).sort((a,b) => b.createdAt - a.createdAt);
           } else { state.projects = MOCK_PROJECTS; }
           
@@ -1025,7 +1025,7 @@
         }
 
         const projectData = {
-          id: state.editingProject?.id || Date.now().toString(),
+          id: String(state.editingProject?.id || Date.now()),
           title: form.title.value,
           category: form.category.value,
           type: form.type.value,
@@ -1044,7 +1044,7 @@
         }
 
         if (state.editingProject) {
-          const index = state.projects.findIndex(p => p.id === state.editingProject.id);
+          const index = state.projects.findIndex(p => String(p.id) === String(state.editingProject.id));
           if (index !== -1) state.projects[index] = projectData;
         } else {
           state.projects.unshift(projectData);
@@ -1061,16 +1061,25 @@
     }
 
     window.editProject = function(id) {
-      state.editingProject = state.projects.find(p => p.id === id);
+      state.editingProject = state.projects.find(p => String(p.id) === String(id));
       setAdminTab('add');
     }
 
     window.deleteProject = async function(id) {
-      if(confirm('Tem certeza?')) {
-        state.projects = state.projects.filter(p => p.id !== id);
-        await apiPost('deleteProject', { id });
+      if (!confirm('Tem certeza?')) return;
+      try {
+        const result = await apiPost('deleteProject', { id: String(id) });
+        if (!result || result.status !== 'success') {
+          if (!/sess[ãa]o|login/i.test((result && result.message) || '')) {
+            alert((result && result.message) || 'Não foi possível excluir o projeto.');
+          }
+          return;
+        }
+        state.projects = state.projects.filter(p => String(p.id) !== String(id));
         setAdminTab('edit');
         renderAllSections();
+      } catch (err) {
+        alert('Erro ao excluir: ' + err.message);
       }
     }
 
@@ -1221,7 +1230,7 @@
     }
 
     window.openProjectModal = function(id) {
-      const project = state.projects.find(p => p.id === id);
+      const project = state.projects.find(p => String(p.id) === String(id));
       if (!project) return;
 
       const modal = document.getElementById('project-modal');
@@ -1245,7 +1254,7 @@
 
       const suggestionContainer = document.getElementById('project-modal-suggestion');
       const suggestionCard = document.getElementById('project-modal-suggestion-card');
-      const suggestedProject = state.projects.find(p => p.id !== id && p.category === project.category);
+      const suggestedProject = state.projects.find(p => String(p.id) !== String(id) && p.category === project.category);
       
       if (suggestedProject) {
         suggestionContainer.classList.remove('hidden');
